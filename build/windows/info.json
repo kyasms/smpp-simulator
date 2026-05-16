@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "0.1.0"
+	},
+	"info": {
+		"0000": {
+			"ProductVersion": "0.1.0",
+			"CompanyName": "KyaSmppSimulator",
+			"FileDescription": "SMPP SMSC Simulator",
+			"LegalCopyright": "© 2026, KyaSmppSimulator",
+			"ProductName": "KyaSmppSimulator",
+			"Comments": "SMPP SMSC Simulator - clone of AuSmppSimulator"
+		}
+	}
+}

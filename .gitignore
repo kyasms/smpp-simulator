@@ -1,0 +1,7 @@
+.task
+bin
+build/linux/appimage/build
+build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
+backups
+kyasmpp.exe
+KyaSmppSimulator.exe

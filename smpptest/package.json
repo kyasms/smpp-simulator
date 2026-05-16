@@ -1,0 +1,25 @@
+{
+  "name": "smpp-client-tester",
+  "version": "1.0.0",
+  "description": "JavaScript SMPP client for testing KyaSmppServer",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test-client.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.0",
+    "mongodb": "^6.17.0",
+    "smpp": "^0.6.0-rc.4"
+  },
+  "keywords": [
+    "smpp",
+    "client",
+    "testing"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@faker-js/faker": "^9.8.0"
+  }
+}
