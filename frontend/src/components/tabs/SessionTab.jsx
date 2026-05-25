@@ -60,7 +60,7 @@ export default function SessionTab({ t, sess, config }) {
     ['Default encoding',  MULTIPART_LABELS[config?.multipartMode] || 'UDH'],
     ['Auto-respond DLR',  config?.echo ? 'enabled' : 'disabled'],
     ['Failure injection', '0%'],
-    ['enquire_link',      `${Math.round((config?.enquireIntervalMs ?? 30000) / 1000)}s`],
+    ['enquire_link',      (config?.enquireIntervalMs ?? 30000) > 0 ? `${Math.round((config.enquireIntervalMs ?? 30000) / 1000)}s` : 'off'],
   ];
 
   return (

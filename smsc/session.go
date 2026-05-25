@@ -39,6 +39,14 @@ type sessionHandler struct {
 	// Outbound PDU queue (deliver_sm / DLR)
 	outCh chan []byte
 
+	// Outstanding request PDUs we sent (enquire_link / deliver_sm) awaiting the
+	// client's response, keyed by sequence number → time queued. Used to enforce
+	// the PDU timeout: if the client fails to answer one in time, the session is closed.
+	pendingMu sync.Mutex
+	pending   map[uint32]time.Time
+
+	bound atomic.Bool // true once bound — gates proactive enquire_link sending
+
 	closeOnce sync.Once
 	done      chan struct{}
 
@@ -55,6 +63,7 @@ func newSessionHandler(id int, conn net.Conn, srv *Server) *sessionHandler {
 		remoteIP:   addr.IP.String(),
 		remotePort: addr.Port,
 		outCh:      make(chan []byte, MaxOutQueuePerSession),
+		pending:    make(map[uint32]time.Time),
 		done:       make(chan struct{}),
 	}
 	return sh
@@ -98,16 +107,19 @@ func (sh *sessionHandler) run() {
 	defer sh.close()
 
 	go sh.writeLoop()
+	go sh.keepaliveLoop()
 
 	reader := newBufReader(sh.conn)
 	srv := sh.srv
 
 	for {
-		srv.mu.RLock()
-		timeout := srv.cfg.PDUTimeoutMs
-		srv.mu.RUnlock()
-
-		pdu, err := ReadPDU(reader, sh.conn, timeout)
+		// No read deadline: the read blocks until a PDU arrives. Keeping the connection
+		// alive and dropping unresponsive clients is handled by keepaliveLoop, which
+		// sends enquire_link every EnquireIntervalMs and closes the session when the
+		// client fails to answer an outstanding PDU within PDUTimeoutMs (matching the
+		// reference AxSms EnquireInterval / PduTimeout behaviour). Closing the connection
+		// unblocks this read.
+		pdu, err := ReadPDU(reader, sh.conn, 0)
 		if err != nil {
 			select {
 			case <-sh.done:
@@ -137,6 +149,10 @@ func (sh *sessionHandler) dispatch(pdu *PDU) error {
 		return sh.handleDeliverSMResp(pdu)
 	case CmdEnquireLink:
 		return sh.handleEnquireLink(pdu)
+	case CmdEnquireLinkResp:
+		// Client answered an enquire_link we sent — the link is alive.
+		sh.clearPending(pdu.Header.SequenceNumber)
+		return nil
 	case CmdUnbind:
 		return sh.handleUnbind(pdu)
 	case CmdQuerySm:
@@ -192,6 +208,7 @@ func (sh *sessionHandler) handleBind(pdu *PDU) error {
 	sh.addrNPI = b.NPI
 	sh.state = SessionStateBound
 	sh.boundAt = time.Now()
+	sh.bound.Store(true)
 
 	srv.log("INFO", sh.label(), fmt.Sprintf("bound as %s (type=%s v=0x%02X)", b.SystemID, bindTypeName(pdu.Header.CommandID), b.IntVersion))
 	srv.emit("smpp:session-bound", sh.info())
@@ -292,8 +309,8 @@ func (sh *sessionHandler) handleSubmitSM(pdu *PDU) error {
 }
 
 func (sh *sessionHandler) handleDeliverSMResp(pdu *PDU) error {
-	// Acknowledge — nothing to do except log
-	sh.srv.logPDU("IN", sh.label(), pdu.Header.CommandID, pdu.Body)
+	// Client acknowledged a deliver_sm we sent — clear it from the pending set.
+	sh.clearPending(pdu.Header.SequenceNumber)
 	return nil
 }
 
@@ -347,6 +364,7 @@ func (sh *sessionHandler) sendDLR(sm *SubmitSM, msgRef, bodyExcerpt string) {
 
 	select {
 	case sh.outCh <- pduBytes:
+		sh.trackPending(seqNum)
 		atomic.AddInt64(&sh.srv.totalSent, 1)
 		atomic.AddInt64(&sh.msgOut, 1)
 		mi := MessageInfo{
@@ -383,6 +401,7 @@ func (sh *sessionHandler) sendEcho(sm *SubmitSM, msgRef string) {
 	pduBytes := EncodePDU(CmdDeliverSm, EsmeROk, seqNum, body)
 	select {
 	case sh.outCh <- pduBytes:
+		sh.trackPending(seqNum)
 		atomic.AddInt64(&sh.srv.totalSent, 1)
 	default:
 		sh.srv.log("WARN", sh.label(), "echo deliver_sm dropped: out queue full")
@@ -412,6 +431,7 @@ func (sh *sessionHandler) sendDeliver(req SendMessageRequest) error {
 
 	select {
 	case sh.outCh <- pduBytes:
+		sh.trackPending(seqNum)
 		atomic.AddInt64(&sh.srv.totalSent, 1)
 		atomic.AddInt64(&sh.msgOut, 1)
 		mi := MessageInfo{
@@ -454,6 +474,7 @@ func (sh *sessionHandler) sendAutoMessage(tmpl AutoMessage) error {
 
 	select {
 	case sh.outCh <- pduBytes:
+		sh.trackPending(seqNum)
 		atomic.AddInt64(&sh.srv.totalSent, 1)
 		atomic.AddInt64(&sh.msgOut, 1)
 		mi := MessageInfo{
@@ -516,9 +537,104 @@ func (sh *sessionHandler) sendPDU(cmdID, status, seqNum uint32, body []byte) err
 func (sh *sessionHandler) close() {
 	sh.closeOnce.Do(func() {
 		sh.state = SessionStateClosed
+		sh.bound.Store(false)
 		sh.conn.Close()
 		close(sh.done)
 	})
+}
+
+// ---- Keepalive (enquire_link + PDU timeout) ---------------------------------
+
+// keepaliveLoop mirrors the reference AxSms EnquireInterval / PduTimeout behaviour:
+// it sends an enquire_link to the bound client every EnquireIntervalMs (when > 0),
+// and closes the session if the client fails to answer an outstanding request PDU
+// (enquire_link or deliver_sm) within PDUTimeoutMs (when > 0). A value of 0 disables
+// the corresponding mechanism, so EnquireIntervalMs == 0 means the session is never
+// pinged and PDUTimeoutMs == 0 means it is never dropped for an unanswered PDU.
+func (sh *sessionHandler) keepaliveLoop() {
+	ticker := time.NewTicker(time.Duration(KeepaliveTickInterval) * time.Millisecond)
+	defer ticker.Stop()
+
+	lastEnquire := time.Now()
+	for {
+		select {
+		case <-sh.done:
+			return
+		case now := <-ticker.C:
+			sh.srv.mu.RLock()
+			enquireMs := sh.srv.cfg.EnquireIntervalMs
+			pduMs := sh.srv.cfg.PDUTimeoutMs
+			sh.srv.mu.RUnlock()
+
+			// Enforce the PDU timeout: drop the session if any outstanding PDU is too old.
+			if pduMs > 0 {
+				if seq, ok := sh.oldestPendingExceeding(time.Duration(pduMs)*time.Millisecond, now); ok {
+					sh.srv.log("WARN", sh.label(),
+						fmt.Sprintf("client did not respond to PDU seq=%d within %dms — closing session", seq, pduMs))
+					sh.close()
+					return
+				}
+			} else {
+				// Timeout disabled — don't retain pending entries (avoids unbounded growth).
+				sh.clearAllPending()
+			}
+
+			// Send a keepalive enquire_link to the client when one is due.
+			if enquireMs > 0 && sh.bound.Load() &&
+				now.Sub(lastEnquire) >= time.Duration(enquireMs)*time.Millisecond {
+				lastEnquire = now
+				sh.sendEnquireLink()
+			}
+		}
+	}
+}
+
+// sendEnquireLink queues an enquire_link PDU to the client and tracks it as a
+// pending request awaiting an enquire_link_resp.
+func (sh *sessionHandler) sendEnquireLink() {
+	seq := sh.nextSeq()
+	pduBytes := EncodePDU(CmdEnquireLink, EsmeROk, seq, nil)
+	select {
+	case sh.outCh <- pduBytes:
+		sh.trackPending(seq)
+		sh.srv.logPDU("OUT", sh.label(), CmdEnquireLink, nil)
+	default:
+		sh.srv.log("WARN", sh.label(), "enquire_link dropped: out queue full")
+	}
+}
+
+// ---- Pending-request tracking -----------------------------------------------
+
+func (sh *sessionHandler) trackPending(seq uint32) {
+	sh.pendingMu.Lock()
+	sh.pending[seq] = time.Now()
+	sh.pendingMu.Unlock()
+}
+
+func (sh *sessionHandler) clearPending(seq uint32) {
+	sh.pendingMu.Lock()
+	delete(sh.pending, seq)
+	sh.pendingMu.Unlock()
+}
+
+func (sh *sessionHandler) clearAllPending() {
+	sh.pendingMu.Lock()
+	if len(sh.pending) > 0 {
+		sh.pending = make(map[uint32]time.Time)
+	}
+	sh.pendingMu.Unlock()
+}
+
+// oldestPendingExceeding returns a pending sequence number whose age exceeds d, if any.
+func (sh *sessionHandler) oldestPendingExceeding(d time.Duration, now time.Time) (uint32, bool) {
+	sh.pendingMu.Lock()
+	defer sh.pendingMu.Unlock()
+	for seq, t := range sh.pending {
+		if now.Sub(t) > d {
+			return seq, true
+		}
+	}
+	return 0, false
 }
 
 // ---- Helpers ----------------------------------------------------------------

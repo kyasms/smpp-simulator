@@ -25,8 +25,14 @@ type PDU struct {
 
 // ReadPDU reads one complete PDU from r, enforcing a read deadline if conn is provided.
 func ReadPDU(r io.Reader, conn net.Conn, timeoutMs int) (*PDU, error) {
-	if conn != nil && timeoutMs > 0 {
-		conn.SetReadDeadline(time.Now().Add(time.Duration(timeoutMs) * time.Millisecond))
+	if conn != nil {
+		if timeoutMs > 0 {
+			conn.SetReadDeadline(time.Now().Add(time.Duration(timeoutMs) * time.Millisecond))
+		} else {
+			// No deadline: block until a PDU arrives. Also clears any deadline left
+			// over from a previous read (e.g. after the enquire_link interval was set to 0).
+			conn.SetReadDeadline(time.Time{})
+		}
 	}
 
 	var hdr PDUHeader

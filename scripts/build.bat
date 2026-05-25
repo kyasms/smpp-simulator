@@ -28,8 +28,9 @@ if /I "%MODE%"=="package" (
         popd >nul
         exit /b 1
     )
-    echo !PATH! | find /I "!NSIS_DIR!" >nul
-    if errorlevel 1 set "PATH=!NSIS_DIR!;!PATH!"
+    REM Prefixe le PATH avec NSIS (sans dependre de `find`, qui peut etre masque
+    REM par un `find` Unix via Git/MSYS). Inoffensif si deja present : limite a cette session.
+    set "PATH=!NSIS_DIR!;!PATH!"
 )
 
 REM ── Localiser wails3 ────────────────────────────────────────────────────

@@ -35,6 +35,7 @@ export default function SessionDetail({ t, sess, messages, config, onSend, onDro
   const [sendOpen, setSendOpen] = useState(false);
 
   const stateInfo = STATE_MAP[sess.state] || { label: sess.state, tone: 'muted' };
+  const isClosed = sess.state === 'closed';
 
   const handleDrop = () => onDrop(sess.id);
 
@@ -67,13 +68,16 @@ export default function SessionDetail({ t, sess, messages, config, onSend, onDro
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
             <button
               onClick={() => setSendOpen(true)}
-              style={{ padding: '5px 10px', border: `1px solid ${t.border}`, background: 'transparent', color: t.ink, borderRadius: 3, fontSize: 12, cursor: 'pointer' }}>
+              disabled={isClosed}
+              title={isClosed ? 'Session closed — cannot send' : undefined}
+              style={{ padding: '5px 10px', border: `1px solid ${t.border}`, background: 'transparent', color: t.ink, borderRadius: 3, fontSize: 12, cursor: isClosed ? 'not-allowed' : 'pointer', opacity: isClosed ? 0.45 : 1 }}>
               Send
             </button>
             <button
               onClick={handleDrop}
+              title={isClosed ? 'Remove this closed session from the list' : 'Disconnect this session'}
               style={{ padding: '5px 10px', border: `1px solid ${t.border}`, background: 'transparent', color: t.danger, borderRadius: 3, fontSize: 12, cursor: 'pointer' }}>
-              Drop
+              {isClosed ? 'Remove' : 'Drop'}
             </button>
           </div>
         </div>

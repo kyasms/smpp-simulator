@@ -327,8 +327,34 @@ const OptionsBtn = styled.button`
 const Body = styled.div`
   flex: 1;
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: ${p => p.$sidebar}px 1fr;
   min-height: 0;
+  position: relative;
+`;
+
+const ResizeHandle = styled.div`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  margin-left: -4px;
+  cursor: col-resize;
+  z-index: 20;
+  user-select: none;
+  touch-action: none;
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 4px;
+    width: 2px;
+    background: ${p => (p.$active ? p.theme.accent : 'transparent')};
+    transition: background 120ms;
+  }
+  &:hover::after {
+    background: ${p => p.theme.accent};
+  }
 `;
 
 const SessionsPane = styled.div`
@@ -420,6 +446,11 @@ const RightPaneEmpty = styled.div`
 
 // ── Export ─────────────────────────────────────────────────────────────────
 
+const SIDEBAR_MIN = 240;
+const SIDEBAR_MAX = 640;
+const SIDEBAR_DEFAULT = 320;
+const SIDEBAR_KEY = 'kya.sidebarWidth';
+
 export default function KyaShell({
   t, operator, running, stats, sessions, messages,
   config, onStart, onStop, onSend, onDrop, onConfigSave,
@@ -432,6 +463,46 @@ export default function KyaShell({
   const [bindPort, setBindPort] = useState(operator?.port || 2775);
   const spark = useSparkline(messages);
 
+  // ── Resizable sidebar ───────────────────────────────────────────────────
+  const bodyRef = useRef(null);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = Number(localStorage.getItem(SIDEBAR_KEY));
+    return saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX ? saved : SIDEBAR_DEFAULT;
+  });
+  const [resizing, setResizing] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_KEY, String(sidebarWidth));
+  }, [sidebarWidth]);
+
+  const startResize = (e) => {
+    e.preventDefault();
+    setResizing(true);
+    let raf = 0;
+    const onMove = (ev) => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const rect = bodyRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const w = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, ev.clientX - rect.left));
+        setSidebarWidth(w);
+      });
+    };
+    const stop = () => {
+      if (raf) cancelAnimationFrame(raf);
+      setResizing(false);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', stop);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', stop);
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+  };
+
   useEffect(() => {
     SmppService.GetLocalIPs().then(ips => setLocalIPs(ips ?? []));
   }, []);
@@ -440,7 +511,10 @@ export default function KyaShell({
     if (!running) setBindPort(operator?.port || 2775);
   }, [operator?.port]);
 
-  const sess = sessions.find(s => s.id === selectedId) || sessions[0] || null;
+  const sess = sessions.find(s => s.id === selectedId)
+    || sessions.find(s => s.state !== 'closed')
+    || sessions[0]
+    || null;
   const sessMsgs = sess
     ? [...messages].filter(m => m.sessionId === sess.id).slice(-40).reverse()
     : [];
@@ -455,6 +529,15 @@ export default function KyaShell({
     (s.systemId || '').toLowerCase().includes(search.toLowerCase()) ||
     (s.clientIp || '').includes(search)
   );
+
+  // Active sessions first, closed (extinguished) ones last — stable within each group.
+  const orderedSessions = [
+    ...filtered.filter(s => s.state !== 'closed'),
+    ...filtered.filter(s => s.state === 'closed'),
+  ];
+
+  const liveCount = sessions.filter(s => s.state !== 'closed').length;
+  const closedCount = sessions.length - liveCount;
 
   const port = operator?.port || stats?.port || 2775;
 
@@ -502,12 +585,12 @@ export default function KyaShell({
         </HeaderRight>
       </Header>
 
-      <Body>
+      <Body ref={bodyRef} $sidebar={sidebarWidth}>
         <SessionsPane>
           <SessionsPaneHead>
             <SessionsPaneTitle>
               <SessionsTitle>Sessions</SessionsTitle>
-              <SessionCount>{sessions.length} live</SessionCount>
+              <SessionCount>{liveCount} live{closedCount > 0 ? ` · ${closedCount} closed` : ''}</SessionCount>
             </SessionsPaneTitle>
             <SearchInput
               value={search}
@@ -517,10 +600,10 @@ export default function KyaShell({
           </SessionsPaneHead>
 
           <SessionsList>
-            {filtered.length === 0 ? (
+            {orderedSessions.length === 0 ? (
               <EmptyState>{running ? 'No sessions connected.' : 'Server is stopped.'}</EmptyState>
             ) : (
-              filtered.map(s => (
+              orderedSessions.map(s => (
                 <SessionRow
                   key={s.id}
                   t={t}
@@ -542,6 +625,14 @@ export default function KyaShell({
             <span>tcp · ipv4</span>
           </SessionsFooter>
         </SessionsPane>
+
+        <ResizeHandle
+          style={{ left: sidebarWidth }}
+          $active={resizing}
+          onMouseDown={startResize}
+          onDoubleClick={() => setSidebarWidth(SIDEBAR_DEFAULT)}
+          title="Drag to resize · double-click to reset"
+        />
 
         <RightPane>
           {sess ? (

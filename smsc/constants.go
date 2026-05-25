@@ -209,4 +209,5 @@ const (
 	StatsTickInterval     = 500 // ms
 	WorkerTickInterval    = 100 // ms
 	ConfigReloadInterval  = 3000 // ms
+	KeepaliveTickInterval = 500 // ms — granularity for enquire_link sending & PDU-timeout checks
 )

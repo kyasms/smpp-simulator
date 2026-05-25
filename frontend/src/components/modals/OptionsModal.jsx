@@ -112,6 +112,14 @@ function FailureSection({ t, label, okLabel, statusOptions, entries, pick, pct, 
   );
 }
 
+// Parse a millisecond field: empty/invalid falls back to the default, but an
+// explicit 0 is kept (0 = disabled, e.g. enquire_link timeout off).
+function parseMs(v, dflt) {
+  if (v === '' || v === null || v === undefined) return dflt;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : dflt;
+}
+
 const MULTIPART_MAP_FWD = { 0: 'UDH', 1: 'UDH16', 2: 'SAR', 3: 'PAYLOAD' };
 const MULTIPART_MAP_REV = { UDH: 0, UDH16: 1, SAR: 2, PAYLOAD: 3 };
 const DELIVER_MAP_FWD   = { 0: 'FORWARD', 1: 'DELIVER' };
@@ -171,8 +179,8 @@ export default function OptionsModal({ t, config, onSave, onClose }) {
       authRequired:       opts.authEnabled,
       systemId:           opts.authSystemId,
       password:           opts.authPassword,
-      pduTimeoutMs:       Number(opts.pduTimeout) || 5000,
-      enquireIntervalMs:  Number(opts.enquireInterval) || 30000,
+      pduTimeoutMs:       parseMs(opts.pduTimeout, 5000),
+      enquireIntervalMs:  parseMs(opts.enquireInterval, 30000),
       processingMinMs:    Number(opts.procMin) || 0,
       processingMaxMs:    Number(opts.procMax) || 0,
       lastReference:      Number(opts.lastReference) || 0,
@@ -245,6 +253,11 @@ export default function OptionsModal({ t, config, onSave, onClose }) {
               <OptInput t={t} label="PDU timeout"          suffix="ms" value={opts.pduTimeout}      onChange={v => set('pduTimeout', v)} />
               <OptInput t={t} label="enquire_link interval" suffix="ms" value={opts.enquireInterval} onChange={v => set('enquireInterval', v)} />
             </div>
+            <p style={{ margin: '4px 0 0', fontSize: 11.5, color: t.muted, lineHeight: 1.55 }}>
+              The server sends an enquire_link to each bound client every <span style={{ fontFamily: t.fontMono, color: t.inkSoft }}>enquire_link interval</span> ms to keep the connection alive.
+              If a client fails to answer an outstanding PDU within the <span style={{ fontFamily: t.fontMono, color: t.inkSoft }}>PDU timeout</span>, its session is closed.
+              Set either to <span style={{ fontFamily: t.fontMono, color: t.inkSoft }}>0</span> to disable it — enquire_link interval 0 stops the pings, so an idle session is never auto-disconnected.
+            </p>
           </OptGroup>
 
           <OptGroup t={t} label="Sequence">

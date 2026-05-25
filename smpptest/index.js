@@ -10,8 +10,7 @@ const counter = new Counter()
 
 const config = {
     host: '127.0.0.1',
-    port: 5101,
-    // port: 2777,
+    port: 2777,
     system_id: 'kya',
     password: 'P@ssw0rd',
     interface_version: 0x50,
@@ -37,18 +36,24 @@ function send(session, param = {}) {
     let LIMIT = 10;
     session.on('connect', async () => {
         session.bind_transceiver(config, async function (pdu) {
+            console.log("Binded at " + new Date());
+
             // counter.pdu(pdu);
             if (pdu.command_status == 0) {
 
-                let h = setInterval(() => {
-                    if (LIMIT && counter.a > LIMIT) return clearInterval(h);
-                    send(session);
-                }, 1000);
+                /* let h = setInterval(() => {
+                     if (LIMIT && counter.a > LIMIT) return clearInterval(h);
+                     send(session);
+                 }, 1000);*/
             } else {
                 console.error(`❌ Bind failed: command_status=${pdu.command_status} (${pdu.command_status_name || 'unknown'})`);
                 session.close();
             }
         });
-    })
+    });
+
+    session.on('close', () => {
+        console.log("Closed at " + new Date());
+    });
 })();
 

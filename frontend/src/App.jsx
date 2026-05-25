@@ -14,6 +14,22 @@ function makeOperator(name, port) {
   return { id: crypto.randomUUID(), name, port };
 }
 
+// Merge the live session list (from stats ticks / GetSessions) with the rows we
+// already have. Any session that has dropped out of the live list is kept as a
+// CLOSED row instead of being discarded — so disconnected sessions stay visible
+// in the table. New live sessions are appended.
+function mergeSessions(prev, live) {
+  const liveById = new Map(live.map(s => [s.id, s]));
+  const merged = prev.map(p =>
+    liveById.has(p.id) ? liveById.get(p.id) : { ...p, state: 'CLOSED' }
+  );
+  const seen = new Set(prev.map(p => p.id));
+  for (const l of live) {
+    if (!seen.has(l.id)) merged.push(l);
+  }
+  return merged;
+}
+
 const DEFAULT_STATS = {
   sessionCount: 0, totalReceived: 0, totalSent: 0,
   receivedPerSecond: 0, sentPerSecond: 0, port: 2775,
@@ -87,7 +103,7 @@ export default function App() {
           ...s,
           running: d.serverRunning ?? false,
           stats: d,
-          rawSessions: d.sessions ?? s.rawSessions,
+          rawSessions: d.sessions ? mergeSessions(s.rawSessions, d.sessions) : s.rawSessions,
         }));
       }),
       Events.On('smpp:server-stopped', e => {
@@ -114,9 +130,12 @@ export default function App() {
       Events.On('smpp:session-disconnected', e => {
         const { operatorId, data: info } = e.data ?? {};
         if (!operatorId || !info) return;
+        // Keep the row, but flag it CLOSED so it shows as an extinguished session.
         updateOp(operatorId, s => ({
           ...s,
-          rawSessions: s.rawSessions.filter(x => x.id !== info.id),
+          rawSessions: s.rawSessions.map(x =>
+            x.id === info.id ? { ...x, state: 'CLOSED' } : x
+          ),
         }));
       }),
       Events.On('smpp:message-received', e => {
@@ -260,9 +279,19 @@ export default function App() {
                 onStart={(port, ip) => handleStart(op.id, port, ip)}
                 onStop={() => handleStop(op.id)}
                 onSend={req => SmppService.SendMessage({ ...req, operatorId: op.id })}
-                onDrop={id => SmppService.DropSession(op.id, id).then(() =>
-                  updateOp(op.id, s => ({ ...s, rawSessions: s.rawSessions.filter(x => x.id !== id) }))
-                )}
+                onDrop={id => {
+                  const nid = Number(id);
+                  const target = (perOp[op.id]?.rawSessions ?? []).find(x => x.id === nid);
+                  // An already-closed row is simply dismissed from the list.
+                  if (target && target.state === 'CLOSED') {
+                    updateOp(op.id, s => ({ ...s, rawSessions: s.rawSessions.filter(x => x.id !== nid) }));
+                    return Promise.resolve();
+                  }
+                  // Live session: ask the backend to disconnect it; the
+                  // session-disconnected event then marks the row CLOSED.
+                  return SmppService.DropSession(op.id, nid)
+                    .catch(err => setStartError(String(err?.message ?? err)));
+                }}
                 onConfigChange={() => loadConfig(op.id)}
                 onConfigSave={cfg => handleConfigSave(op.id, cfg)}
               />
