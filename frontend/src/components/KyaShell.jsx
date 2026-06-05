@@ -193,9 +193,9 @@ const PortInput = styled.input`
   padding: 5px 8px;
   font-family: ${p => p.theme.fontMono};
   font-size: 12px;
-  border: 1px solid ${p => p.theme.border};
+  border: 1px solid ${p => p.$invalid ? p.theme.danger : p.theme.border};
   background: ${p => p.theme.bg};
-  color: ${p => p.theme.ink};
+  color: ${p => p.$invalid ? p.theme.danger : p.theme.ink};
   border-radius: 4px;
   outline: none;
   width: 68px;
@@ -442,7 +442,7 @@ const SIDEBAR_KEY = 'kya.sidebarWidth';
 
 export default function KyaShell({
   t, operator, running, stats, sessions, messages,
-  config, onStart, onStop, onSend, onDrop, onChangePort,
+  config, onStart, onStop, onSend, onDrop, onChangePort, usedPorts,
 }) {
   const [selectedId, setSelectedId] = useState(null);
   const [search, setSearch] = useState('');
@@ -529,6 +529,11 @@ export default function KyaShell({
 
   const port = operator?.port || stats?.port || 2775;
 
+  // Live validation of the port input — red border when out of range or already
+  // claimed by another operator. Keeps the value local until it's commit-worthy.
+  const portInvalid = !Number.isInteger(bindPort) || bindPort < 1 || bindPort > 65535;
+  const portConflict = !portInvalid && (usedPorts ?? []).includes(bindPort);
+
   return (
     <Shell>
       <Header>
@@ -543,8 +548,24 @@ export default function KyaShell({
             <PortInput
               type="number"
               value={bindPort}
-              onChange={e => setBindPort(Number(e.target.value))}
-              onBlur={() => onChangePort?.(bindPort)}
+              $invalid={portInvalid || portConflict}
+              title={
+                portConflict ? `Port ${bindPort} is already used by another server`
+                : portInvalid ? 'Port must be between 1 and 65535'
+                : undefined
+              }
+              onChange={e => {
+                const v = e.target.value;
+                setBindPort(v === '' ? '' : Number(v));
+              }}
+              onBlur={() => {
+                if (portInvalid || portConflict) {
+                  // Revert to the persisted port instead of leaving an invalid value.
+                  setBindPort(operator?.port || 2775);
+                } else {
+                  onChangePort?.(bindPort);
+                }
+              }}
               onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
               disabled={running}
               min={1}

@@ -223,6 +223,8 @@ export default function App() {
   const handleChangePort = (opId, port) => {
     const p = Number(port);
     if (!Number.isInteger(p) || p < 1 || p > 65535) return;
+    // Reject ports already used by another operator.
+    if (operators.some(o => o.id !== opId && o.port === p)) return;
     const current = operators.find(o => o.id === opId);
     if (!current || current.port === p) return;
     const next = { ...current, port: p };
@@ -292,6 +294,7 @@ export default function App() {
                 onStart={(port, ip) => handleStart(op.id, port, ip)}
                 onStop={() => handleStop(op.id)}
                 onChangePort={port => handleChangePort(op.id, port)}
+                usedPorts={operators.filter(o => o.id !== op.id).map(o => o.port)}
                 onSend={req => SmppService.SendMessage({ ...req, operatorId: op.id })}
                 onDrop={id => {
                   const nid = Number(id);
