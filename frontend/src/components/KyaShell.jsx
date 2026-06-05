@@ -4,7 +4,6 @@ import KyaMark from './atoms/KyaMark';
 import Dot from './atoms/Dot';
 import Sparkline from './atoms/Sparkline';
 import SessionDetail from './SessionDetail';
-import OptionsModal from './modals/OptionsModal';
 import useSparkline from '../hooks/useSparkline';
 import { formatRelative } from '../dataHelpers';
 import { SmppService } from '../../bindings/kyasmpp/services';
@@ -314,16 +313,6 @@ const HeaderRight = styled.div`
   gap: 12px;
 `;
 
-const OptionsBtn = styled.button`
-  padding: 6px 10px;
-  border: 1px solid ${p => p.theme.border};
-  border-radius: 4px;
-  background: transparent;
-  color: ${p => p.theme.ink};
-  font-size: 12px;
-  cursor: pointer;
-`;
-
 const Body = styled.div`
   flex: 1;
   display: grid;
@@ -453,11 +442,10 @@ const SIDEBAR_KEY = 'kya.sidebarWidth';
 
 export default function KyaShell({
   t, operator, running, stats, sessions, messages,
-  config, onStart, onStop, onSend, onDrop, onConfigSave,
+  config, onStart, onStop, onSend, onDrop,
 }) {
   const [selectedId, setSelectedId] = useState(null);
   const [search, setSearch] = useState('');
-  const [optionsOpen, setOptionsOpen] = useState(false);
   const [localIPs, setLocalIPs] = useState([]);
   const [bindIp, setBindIp] = useState('0.0.0.0');
   const [bindPort, setBindPort] = useState(operator?.port || 2775);
@@ -581,7 +569,6 @@ export default function KyaShell({
 
         <HeaderRight>
           <Sparkline points={spark} t={t} width={140} height={28} />
-          <OptionsBtn onClick={() => setOptionsOpen(true)}>Options…</OptionsBtn>
         </HeaderRight>
       </Header>
 
@@ -644,10 +631,6 @@ export default function KyaShell({
           )}
         </RightPane>
       </Body>
-
-      {optionsOpen && (
-        <OptionsModal t={t} config={config} onSave={onConfigSave} onClose={() => setOptionsOpen(false)} />
-      )}
     </Shell>
   );
 }

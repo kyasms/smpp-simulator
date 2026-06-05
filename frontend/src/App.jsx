@@ -6,6 +6,7 @@ import { resolveTheme } from './kyaTheme';
 import { mapSession, mapMessage } from './dataHelpers';
 import OperatorStrip from './components/OperatorStrip';
 import KyaShell from './components/KyaShell';
+import OptionsModal from './components/modals/OptionsModal';
 import Toast from './components/Toast';
 import './app.css';
 
@@ -44,6 +45,7 @@ export default function App() {
   const [perOp, setPerOp]         = useState({});
   const [configByOp, setConfigByOp] = useState({});
   const [startError, setStartError] = useState(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   const t = resolveTheme(darkMode, monoFont);
 
@@ -218,6 +220,16 @@ export default function App() {
     OperatorService.SaveOrder(newOperators.map(o => o.id));
   };
 
+  const handleChangePort = (opId, port) => {
+    const p = Number(port);
+    if (!Number.isInteger(p) || p < 1 || p > 65535) return;
+    const current = operators.find(o => o.id === opId);
+    if (!current || current.port === p) return;
+    const next = { ...current, port: p };
+    setOperators(ops => ops.map(o => o.id === opId ? next : o));
+    OperatorService.SaveOperator({ id: next.id, name: next.name, port: next.port });
+  };
+
   const handleRenameOperator = (id, name) => {
     setOperators(ops => {
       const updated = ops.map(o => o.id === id ? { ...o, name } : o);
@@ -250,6 +262,7 @@ export default function App() {
         onToggle={handleToggleOperator}
         darkMode={darkMode}
         onToggleDark={() => setDarkMode(d => !d)}
+        onOpenOptions={() => setOptionsOpen(true)}
       />
 
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
@@ -301,6 +314,14 @@ export default function App() {
       </div>
     </div>
     {startError && <Toast message={startError} onClose={() => setStartError(null)} />}
+    {optionsOpen && (
+      <OptionsModal
+        t={t}
+        config={configByOp[activeOpId]}
+        onSave={cfg => handleConfigSave(activeOpId, cfg)}
+        onClose={() => setOptionsOpen(false)}
+      />
+    )}
     </ThemeProvider>
   );
 }

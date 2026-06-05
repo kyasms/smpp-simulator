@@ -114,19 +114,103 @@ const StripBtn = styled.button`
   justify-content: ${p => p.$icon ? 'center' : 'flex-start'};
 `;
 
+// ── Menu (kebab dropdown) ──────────────────────────────────────────────────
+
+const MenuWrap = styled.div`
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-left: 1px solid ${p => p.theme.border};
+`;
+
+const MenuTrigger = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border: 0;
+  background: ${p => p.$open ? p.theme.surfaceAlt : 'transparent'};
+  color: ${p => p.theme.muted};
+  cursor: pointer;
+  font-family: inherit;
+  &:hover { color: ${p => p.theme.ink}; }
+`;
+
+const MenuPanel = styled.div`
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 4px;
+  min-width: 190px;
+  background: ${p => p.theme.surface};
+  border: 1px solid ${p => p.theme.border};
+  border-radius: 6px;
+  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.25), 0 4px 12px -4px rgba(0,0,0,0.15);
+  padding: 4px;
+  z-index: 50;
+  font-family: ${p => p.theme.fontUI};
+`;
+
+const MenuItem = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  background: transparent;
+  color: ${p => p.theme.ink};
+  font-size: 12.5px;
+  font-family: inherit;
+  text-align: left;
+  border-radius: 4px;
+  cursor: pointer;
+  &:hover:not(:disabled) { background: ${p => p.theme.surfaceAlt}; }
+  &:disabled { color: ${p => p.theme.muted}; cursor: default; opacity: 0.55; }
+`;
+
+const MenuGlyph = styled.span`
+  display: inline-flex;
+  width: 16px;
+  justify-content: center;
+  color: ${p => p.theme.muted};
+  font-size: 13px;
+`;
+
+const MenuSeparator = styled.div`
+  height: 1px;
+  background: ${p => p.theme.borderSoft};
+  margin: 4px 2px;
+`;
+
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function OperatorStrip({ operators, activeId, onPick, onAdd, onRemove, onRename, onReorder, darkMode, onToggleDark }) {
+export default function OperatorStrip({ operators, activeId, onPick, onAdd, onRemove, onRename, onReorder, darkMode, onToggleDark, onOpenOptions }) {
   const [adding, setAdding] = useState(false);
   const [renamingId, setRenamingId] = useState(null);
   const [renameVal, setRenameVal] = useState('');
   const renameRef = useRef(null);
   const [dragIdx, setDragIdx] = useState(null);
   const [dropIdx, setDropIdx] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   useEffect(() => {
     if (renamingId) renameRef.current?.select();
   }, [renamingId]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
 
   const handleDragStart = (e, idx) => {
     setDragIdx(idx);
@@ -182,7 +266,10 @@ export default function OperatorStrip({ operators, activeId, onPick, onAdd, onRe
   return (
     <>
       <Strip>
-        <Tabs onDragOver={e => e.preventDefault()}>
+        <Tabs
+          onDragOver={e => e.preventDefault()}
+          onDoubleClick={e => { if (e.target === e.currentTarget) setAdding(true); }}
+        >
           {operators.map((op, idx) => {
             const active = op.id === activeId;
             const running = op.status === 'running';
@@ -232,19 +319,47 @@ export default function OperatorStrip({ operators, activeId, onPick, onAdd, onRe
           })}
         </Tabs>
 
-        {activeOp && (
-          <StripBtn onClick={() => handleDuplicate(activeOp)} title="Duplicate active operator">
-            ⎘ <span style={{ fontSize: 11.5 }}>Duplicate</span>
-          </StripBtn>
-        )}
+        <MenuWrap ref={menuRef}>
+          <MenuTrigger
+            $open={menuOpen}
+            onClick={() => setMenuOpen(o => !o)}
+            title="Menu"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            <svg width="14" height="4" viewBox="0 0 14 4" fill="currentColor" aria-hidden="true">
+              <circle cx="2"  cy="2" r="1.4" />
+              <circle cx="7"  cy="2" r="1.4" />
+              <circle cx="12" cy="2" r="1.4" />
+            </svg>
+          </MenuTrigger>
 
-        <StripBtn onClick={() => setAdding(true)}>
-          + <span style={{ fontSize: 11.5 }}>New server</span>
-        </StripBtn>
-
-        <StripBtn $icon $muted onClick={onToggleDark} title={darkMode ? 'Light mode' : 'Dark mode'}>
-          {darkMode ? '☀' : '◑'}
-        </StripBtn>
+          {menuOpen && (
+            <MenuPanel role="menu">
+              <MenuItem onClick={() => { setMenuOpen(false); setAdding(true); }}>
+                <MenuGlyph>+</MenuGlyph> New server
+              </MenuItem>
+              <MenuItem
+                disabled={!activeOp}
+                onClick={() => { if (!activeOp) return; setMenuOpen(false); handleDuplicate(activeOp); }}
+              >
+                <MenuGlyph>⎘</MenuGlyph> Duplicate active
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem onClick={() => { setMenuOpen(false); onToggleDark?.(); }}>
+                <MenuGlyph>{darkMode ? '☀' : '◑'}</MenuGlyph>
+                {darkMode ? 'Light mode' : 'Dark mode'}
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem
+                disabled={!onOpenOptions}
+                onClick={() => { setMenuOpen(false); onOpenOptions?.(); }}
+              >
+                <MenuGlyph>⚙</MenuGlyph> Options…
+              </MenuItem>
+            </MenuPanel>
+          )}
+        </MenuWrap>
       </Strip>
 
       {adding && (
