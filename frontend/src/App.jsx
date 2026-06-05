@@ -291,6 +291,7 @@ export default function App() {
                 config={configByOp[op.id]}
                 onStart={(port, ip) => handleStart(op.id, port, ip)}
                 onStop={() => handleStop(op.id)}
+                onChangePort={port => handleChangePort(op.id, port)}
                 onSend={req => SmppService.SendMessage({ ...req, operatorId: op.id })}
                 onDrop={id => {
                   const nid = Number(id);

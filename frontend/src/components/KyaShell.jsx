@@ -442,7 +442,7 @@ const SIDEBAR_KEY = 'kya.sidebarWidth';
 
 export default function KyaShell({
   t, operator, running, stats, sessions, messages,
-  config, onStart, onStop, onSend, onDrop,
+  config, onStart, onStop, onSend, onDrop, onChangePort,
 }) {
   const [selectedId, setSelectedId] = useState(null);
   const [search, setSearch] = useState('');
@@ -544,6 +544,8 @@ export default function KyaShell({
               type="number"
               value={bindPort}
               onChange={e => setBindPort(Number(e.target.value))}
+              onBlur={() => onChangePort?.(bindPort)}
+              onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
               disabled={running}
               min={1}
               max={65535}
