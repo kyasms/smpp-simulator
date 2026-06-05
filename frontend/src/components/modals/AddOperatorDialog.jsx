@@ -116,9 +116,29 @@ const BtnPrimary = styled.button`
   opacity: ${p => p.disabled ? 0.5 : 1};
 `;
 
-export default function AddOperatorDialog({ onClose, onAdd, usedPorts }) {
+// Suggested operator names — used as a rotating placeholder. Picked at mount,
+// excluding names already in use, so each new dialog shows a fresh suggestion.
+const NAME_SUGGESTIONS = [
+  'Orange', 'MTN', 'Moov', 'Airtel', 'Celtiis', 'Vodacom',
+  'Safaricom', 'Wave', 'Vodafone', 'Telma', 'Glo', '9mobile',
+];
+
+export default function AddOperatorDialog({ onClose, onAdd, usedPorts, usedNames }) {
   const [name, setName] = useState('');
   const [port, setPort] = useState('2778');
+  const [placeholderName] = useState(() => {
+    const used = new Set((usedNames ?? []).map(n => String(n).toLowerCase()));
+    const candidates = NAME_SUGGESTIONS.filter(s => !used.has(s.toLowerCase()));
+    const pool = candidates.length > 0 ? candidates : NAME_SUGGESTIONS;
+    // Pick two distinct random names from the pool.
+    const i = Math.floor(Math.random() * pool.length);
+    const j = pool.length > 1
+      ? (i + 1 + Math.floor(Math.random() * (pool.length - 1))) % pool.length
+      : -1;
+    const a = pool[i];
+    const b = j >= 0 ? pool[j] : null;
+    return b ? `ex: ${a}, ${b}, etc.` : `ex: ${a}`;
+  });
 
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose(); };
@@ -144,7 +164,12 @@ export default function AddOperatorDialog({ onClose, onAdd, usedPorts }) {
         <PanelBody>
           <FieldLabel>
             <FieldHint>Operator name</FieldHint>
-            <Input value={name} onChange={e => setName(e.target.value)} autoFocus />
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder={placeholderName}
+              autoFocus
+            />
           </FieldLabel>
           <FieldLabel>
             <FieldHint>Port</FieldHint>

@@ -322,6 +322,7 @@ export default function App() {
       <OptionsModal
         t={t}
         config={configByOp[activeOpId]}
+        operatorName={operators.find(o => o.id === activeOpId)?.name}
         onSave={cfg => handleConfigSave(activeOpId, cfg)}
         onClose={() => setOptionsOpen(false)}
       />

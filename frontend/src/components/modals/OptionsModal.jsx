@@ -125,7 +125,7 @@ const MULTIPART_MAP_REV = { UDH: 0, UDH16: 1, SAR: 2, PAYLOAD: 3 };
 const DELIVER_MAP_FWD   = { 0: 'FORWARD', 1: 'DELIVER' };
 const DELIVER_MAP_REV   = { FORWARD: 0, DELIVER: 1 };
 
-export default function OptionsModal({ t, config, onSave, onClose }) {
+export default function OptionsModal({ t, config, onSave, onClose, operatorName }) {
   const [opts, setOpts] = useState({
     authEnabled: false, authSystemId: '', authPassword: '',
     gsmEncoding: 'INOUTCHARS', deliverMode: 'DELIVER', multipartMode: 'UDH',
@@ -221,7 +221,7 @@ export default function OptionsModal({ t, config, onSave, onClose }) {
 
         {/* Header */}
         <div style={{ padding: '20px 28px 14px', borderBottom: `1px solid ${t.border}` }}>
-          <div style={{ fontSize: 11, color: t.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Server</div>
+          <div style={{ fontSize: 11, color: t.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>{operatorName || 'Server'}</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <span style={{ fontFamily: t.fontDisplay, fontSize: 28, letterSpacing: '-0.02em', lineHeight: 1.1 }}>Options</span>
             <button onClick={onClose} style={{ border: 0, background: 'transparent', color: t.muted, fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>

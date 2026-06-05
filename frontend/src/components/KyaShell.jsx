@@ -591,7 +591,9 @@ export default function KyaShell({
         </StatsRow>
 
         <HeaderRight>
-          <Sparkline points={spark} t={t} width={140} height={28} />
+          {spark.some(v => v > 0) && (
+            <Sparkline points={spark} t={t} width={140} height={28} />
+          )}
         </HeaderRight>
       </Header>
 

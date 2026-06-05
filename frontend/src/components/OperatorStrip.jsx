@@ -255,10 +255,19 @@ export default function OperatorStrip({ operators, activeId, onPick, onAdd, onRe
   };
 
   const handleDuplicate = (op) => {
+    // Find a free port (next available after the source).
     const usedPorts = operators.map(o => o.port);
     let port = op.port + 1;
     while (usedPorts.includes(port)) port++;
-    onAdd({ name: op.name, port });
+
+    // Find a free `_n` name. Strip any existing trailing _<digits> from the
+    // source so duplicating "MTN_2" still yields "MTN_3" (not "MTN_2_1").
+    const base = op.name.replace(/_\d+$/, '');
+    const usedNames = new Set(operators.map(o => o.name.toLowerCase()));
+    let n = 1;
+    while (usedNames.has(`${base}_${n}`.toLowerCase())) n++;
+
+    onAdd({ name: `${base}_${n}`, port });
   };
 
   const activeOp = operators.find(o => o.id === activeId);
@@ -367,6 +376,7 @@ export default function OperatorStrip({ operators, activeId, onPick, onAdd, onRe
           onClose={() => setAdding(false)}
           onAdd={op => { onAdd(op); setAdding(false); }}
           usedPorts={operators.map(o => o.port)}
+          usedNames={operators.map(o => o.name)}
         />
       )}
     </>
