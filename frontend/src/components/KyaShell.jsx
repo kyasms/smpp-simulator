@@ -4,6 +4,7 @@ import KyaMark from './atoms/KyaMark';
 import Dot from './atoms/Dot';
 import Sparkline from './atoms/Sparkline';
 import SessionDetail from './SessionDetail';
+import { ChevronRight } from 'lucide-react';
 import useSparkline from '../hooks/useSparkline';
 import { formatRelative } from '../dataHelpers';
 import { SmppService } from '../../bindings/kyasmpp/services';
@@ -402,6 +403,37 @@ const EmptyState = styled.div`
   text-align: center;
 `;
 
+const ClosedHeader = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 18px;
+  border: 0;
+  border-top: 1px solid ${p => p.theme.borderSoft};
+  border-bottom: 1px solid ${p => p.theme.borderSoft};
+  background: transparent;
+  color: ${p => p.theme.muted};
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-align: left;
+  &:hover {
+    background: ${p => p.theme.surfaceAlt};
+    color: ${p => p.theme.ink};
+  }
+`;
+
+const Chevron = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 120ms;
+  transform: rotate(${p => (p.$open ? '90deg' : '0deg')});
+`;
+
 const SessionsFooter = styled.div`
   padding: 12px;
   border-top: 1px solid ${p => p.theme.border};
@@ -446,6 +478,7 @@ export default function KyaShell({
 }) {
   const [selectedId, setSelectedId] = useState(null);
   const [search, setSearch] = useState('');
+  const [closedExpanded, setClosedExpanded] = useState(false);
   const [localIPs, setLocalIPs] = useState([]);
   const [bindIp, setBindIp] = useState('0.0.0.0');
   const [bindPort, setBindPort] = useState(operator?.port || 2775);
@@ -518,11 +551,10 @@ export default function KyaShell({
     (s.clientIp || '').includes(search)
   );
 
-  // Active sessions first, closed (extinguished) ones last — stable within each group.
-  const orderedSessions = [
-    ...filtered.filter(s => s.state !== 'closed'),
-    ...filtered.filter(s => s.state === 'closed'),
-  ];
+  // Active vs closed split — active rows render at the top, closed ones are hidden
+  // under a collapsible "Closed sessions (N)" header to keep the list clean.
+  const activeSessions = filtered.filter(s => s.state !== 'closed');
+  const closedSessions = filtered.filter(s => s.state === 'closed');
 
   const liveCount = sessions.filter(s => s.state !== 'closed').length;
   const closedCount = sessions.length - liveCount;
@@ -612,18 +644,43 @@ export default function KyaShell({
           </SessionsPaneHead>
 
           <SessionsList>
-            {orderedSessions.length === 0 ? (
+            {activeSessions.length === 0 && closedSessions.length === 0 ? (
               <EmptyState>{running ? 'No sessions connected.' : 'Server is stopped.'}</EmptyState>
             ) : (
-              orderedSessions.map(s => (
-                <SessionRow
-                  key={s.id}
-                  t={t}
-                  s={s}
-                  active={s.id === sess?.id}
-                  onClick={() => setSelectedId(s.id)}
-                />
-              ))
+              <>
+                {activeSessions.map(s => (
+                  <SessionRow
+                    key={s.id}
+                    t={t}
+                    s={s}
+                    active={s.id === sess?.id}
+                    onClick={() => setSelectedId(s.id)}
+                  />
+                ))}
+
+                {closedSessions.length > 0 && (
+                  <>
+                    <ClosedHeader
+                      onClick={() => setClosedExpanded(o => !o)}
+                      aria-expanded={closedExpanded}
+                    >
+                      <Chevron $open={closedExpanded}>
+                        <ChevronRight size={14} strokeWidth={2} />
+                      </Chevron>
+                      Closed sessions ({closedSessions.length})
+                    </ClosedHeader>
+                    {closedExpanded && closedSessions.map(s => (
+                      <SessionRow
+                        key={s.id}
+                        t={t}
+                        s={s}
+                        active={s.id === sess?.id}
+                        onClick={() => setSelectedId(s.id)}
+                      />
+                    ))}
+                  </>
+                )}
+              </>
             )}
           </SessionsList>
 

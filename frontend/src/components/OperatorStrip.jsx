@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import styled from '@emotion/styled';
+import { Plus, Copy, Sun, Moon, Settings } from 'lucide-react';
 import AddOperatorDialog from './modals/AddOperatorDialog';
 
 // ── Styled ─────────────────────────────────────────────────────────────────
@@ -346,17 +347,23 @@ export default function OperatorStrip({ operators, activeId, onPick, onAdd, onRe
           {menuOpen && (
             <MenuPanel role="menu">
               <MenuItem onClick={() => { setMenuOpen(false); setAdding(true); }}>
-                <MenuGlyph>+</MenuGlyph> New server
+                <MenuGlyph><Plus size={14} strokeWidth={2} /></MenuGlyph>
+                New server
               </MenuItem>
               <MenuItem
                 disabled={!activeOp}
                 onClick={() => { if (!activeOp) return; setMenuOpen(false); handleDuplicate(activeOp); }}
               >
-                <MenuGlyph>⎘</MenuGlyph> Duplicate active
+                <MenuGlyph><Copy size={14} strokeWidth={2} /></MenuGlyph>
+                Duplicate active
               </MenuItem>
               <MenuSeparator />
               <MenuItem onClick={() => { setMenuOpen(false); onToggleDark?.(); }}>
-                <MenuGlyph>{darkMode ? '☀' : '◑'}</MenuGlyph>
+                <MenuGlyph>
+                  {darkMode
+                    ? <Sun size={14} strokeWidth={2} />
+                    : <Moon size={14} strokeWidth={2} />}
+                </MenuGlyph>
                 {darkMode ? 'Light mode' : 'Dark mode'}
               </MenuItem>
               <MenuSeparator />
@@ -364,7 +371,8 @@ export default function OperatorStrip({ operators, activeId, onPick, onAdd, onRe
                 disabled={!onOpenOptions}
                 onClick={() => { setMenuOpen(false); onOpenOptions?.(); }}
               >
-                <MenuGlyph>⚙</MenuGlyph> Options…
+                <MenuGlyph><Settings size={14} strokeWidth={2} /></MenuGlyph>
+                Options…
               </MenuItem>
             </MenuPanel>
           )}
