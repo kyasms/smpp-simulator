@@ -67,9 +67,6 @@ ManifestDPIAware true
 
 !insertmacro MUI_LANGUAGE "English" # Set the Language of the installer
 
-# Variable to track if user wants to remove app data
-Var RemoveAppData
-
 ## The following two statements can be used to sign the installer and the uninstaller. The path to the binaries are provided in %1
 #!uninstfinalize 'signtool --file "%1"'
 #!finalize 'signtool --file "%1"'
@@ -101,32 +98,10 @@ Section
     !insertmacro wails.writeUninstaller
 SectionEnd
 
-# Uninstall function to show custom options
-Function un.onInit
-    # Show MessageBox asking if user wants to remove configuration/data
-    MessageBox MB_YESNO "Do you want to remove all application data and configuration?$\n$\nSelecting 'Yes' will delete all saved settings, databases, and configuration files.$\nSelecting 'No' will keep your data for future reinstallation." IDYES removeData IDNO keepData
-
-    removeData:
-        StrCpy $RemoveAppData 1
-        Goto done
-
-    keepData:
-        StrCpy $RemoveAppData 0
-
-    done:
-FunctionEnd
-
 Section "uninstall"
     !insertmacro wails.setShellContext
 
     RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath
-
-    # Remove application data folder if user chose to
-    ${If} $RemoveAppData == 1
-        DetailPrint "Removing application data..."
-        RMDir /r "$APPDATA\KyaSmppSimulator"
-        RMDir /r "$LOCALAPPDATA\KyaSmppSimulator"
-    ${EndIf}
 
     RMDir /r $INSTDIR
 

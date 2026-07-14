@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-REM build.bat — Wrapper pour compiler / packager KyaSmppSimulator
+REM build.bat - Wrapper pour compiler / packager KyaSmppSimulator
 REM
 REM Usage:
 REM   scripts\build.bat            -- build l'executable
@@ -26,11 +26,11 @@ if /I not "%MODE%"=="build" if /I not "%MODE%"=="package" if /I not "%MODE%"=="d
     exit /b 1
 )
 
-REM ── Aller a la racine du projet ─────────────────────────────────────────
+REM Aller a la racine du projet
 set "ROOT=%~dp0.."
 pushd "%ROOT%" >nul
 
-REM ── Verifier les prerequis ──────────────────────────────────────────────
+REM Verifier les prerequis
 echo Verification des prerequis...
 
 REM Verifier Go
@@ -78,13 +78,13 @@ if /I "%MODE%"=="package" (
         popd >nul
         exit /b 1
     )
-    echo   [OK] NSIS installé
+    echo   [OK] NSIS installe
     set "PATH=!NSIS_DIR!;!PATH!"
 )
 
-REM ── Lancer ───────────────────────────────────────────────────────────────
+REM Lancer
 echo.
-echo ^> wails3 %MODE% (depuis %ROOT%^)
+echo ^> wails3 %MODE% ^(depuis %ROOT%^)
 echo.
 
 set "START=%TIME%"
@@ -102,7 +102,7 @@ if %EXITCODE% NEQ 0 (
 echo.
 echo [OK] Compilation terminee
 
-REM ── Afficher la taille du binaire / installer ──────────────────────────
+REM Afficher la taille du binaire / installer
 if /I "%MODE%"=="build" (
     set "OUT=%ROOT%\bin\KyaSmppSimulator.exe"
 ) else if /I "%MODE%"=="package" (
