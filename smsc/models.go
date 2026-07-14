@@ -12,12 +12,15 @@ type Config struct {
 	SystemID          string `json:"systemId"`
 	Password          string `json:"password"`
 
-	PDUTimeoutMs      int `json:"pduTimeoutMs"`
-	EnquireIntervalMs int `json:"enquireIntervalMs"`
-	ProcessingMinMs   int `json:"processingMinMs"`
-	ProcessingMaxMs   int `json:"processingMaxMs"`
-	MultipartMode     int `json:"multipartMode"` // 0=UDH 1=UDH16 2=SAR-TLV 3=Payload-TLV
-	DeliverMode       int `json:"deliverMode"`   // 0=forward_sm 1=deliver_sm
+	PDUTimeoutMs               int  `json:"pduTimeoutMs"`
+	EnquireIntervalMs          int  `json:"enquireIntervalMs"`
+	ProcessingMinMs            int  `json:"processingMinMs"`
+	ProcessingMaxMs            int  `json:"processingMaxMs"`
+	DeliveryReportDelayEnabled bool `json:"deliveryReportDelayEnabled"`
+	DeliveryReportDelayMinMs   int  `json:"deliveryReportDelayMinMs"`
+	DeliveryReportDelayMaxMs   int  `json:"deliveryReportDelayMaxMs"`
+	MultipartMode          int `json:"multipartMode"` // 0=UDH 1=UDH16 2=SAR-TLV 3=Payload-TLV
+	DeliverMode            int `json:"deliverMode"`   // 0=forward_sm 1=deliver_sm
 
 	Echo              bool `json:"echo"`
 	GeneratePerMinute int  `json:"generatePerMinute"`
@@ -39,16 +42,19 @@ type Config struct {
 // DefaultConfig returns a sensible default configuration.
 func DefaultConfig() Config {
 	return Config{
-		Port:              2775,
-		BindIP:            "0.0.0.0",
-		SystemID:          "kya",
-		Password:          "P@ssw0rd",
-		PDUTimeoutMs:      5000,
-		EnquireIntervalMs: 30000,
-		MultipartMode:     1,
-		DeliverMode:       1,
-		KeepMessages:      200,
-		LastReference:     0,
+		Port:                       2775,
+		BindIP:                     "0.0.0.0",
+		SystemID:                   "kya",
+		Password:                   "P@ssw0rd",
+		PDUTimeoutMs:               5000,
+		EnquireIntervalMs:          30000,
+		DeliveryReportDelayEnabled: false,
+		DeliveryReportDelayMinMs:   0,
+		DeliveryReportDelayMaxMs:   10000,
+		MultipartMode:              1,
+		DeliverMode:                1,
+		KeepMessages:               200,
+		LastReference:              0,
 	}
 }
 

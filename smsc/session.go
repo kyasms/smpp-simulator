@@ -329,8 +329,23 @@ func (sh *sessionHandler) handleUnbind(pdu *PDU) error {
 
 // sendDLR generates and queues a delivery report for a previously received submit_sm.
 func (sh *sessionHandler) sendDLR(sm *SubmitSM, msgRef, bodyExcerpt string) {
-	// Small delay to make the DLR feel asynchronous
-	time.Sleep(200 * time.Millisecond)
+	// Apply delivery report delay if configured
+	sh.srv.mu.RLock()
+	cfg := sh.srv.cfg
+	sh.srv.mu.RUnlock()
+
+	if cfg.DeliveryReportDelayEnabled && cfg.DeliveryReportDelayMaxMs > 0 {
+		minMs := cfg.DeliveryReportDelayMinMs
+		maxMs := cfg.DeliveryReportDelayMaxMs
+		if minMs > maxMs {
+			minMs = maxMs
+		}
+		delayMs := minMs + rand.Intn(maxMs-minMs+1)
+		time.Sleep(time.Duration(delayMs) * time.Millisecond)
+	} else {
+		// Default small delay to make the DLR feel asynchronous
+		time.Sleep(200 * time.Millisecond)
+	}
 
 	dlrStat := sh.srv.pickDLRStatus()
 	now := time.Now()

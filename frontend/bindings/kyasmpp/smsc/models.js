@@ -6,10 +6,6 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as time$0 from "../../time/models.js";
-
 /**
  * AutoMessage is a template used for periodic auto-delivery to connected clients.
  */
@@ -181,6 +177,27 @@ export class Config {
              */
             this["processingMaxMs"] = 0;
         }
+        if (!("deliveryReportDelayEnabled" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["deliveryReportDelayEnabled"] = false;
+        }
+        if (!("deliveryReportDelayMinMs" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["deliveryReportDelayMinMs"] = 0;
+        }
+        if (!("deliveryReportDelayMaxMs" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["deliveryReportDelayMaxMs"] = 0;
+        }
         if (!("multipartMode" in $$source)) {
             /**
              * 0=UDH 1=UDH16 2=SAR-TLV 3=Payload-TLV
@@ -298,18 +315,18 @@ export class Config {
      * @returns {Config}
      */
     static createFrom($$source = {}) {
-        const $$createField20_0 = $$createType3;
-        const $$createField21_0 = $$createType5;
-        const $$createField22_0 = $$createType7;
+        const $$createField23_0 = $$createType3;
+        const $$createField24_0 = $$createType5;
+        const $$createField25_0 = $$createType7;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("messageErrorRates" in $$parsedSource) {
-            $$parsedSource["messageErrorRates"] = $$createField20_0($$parsedSource["messageErrorRates"]);
+            $$parsedSource["messageErrorRates"] = $$createField23_0($$parsedSource["messageErrorRates"]);
         }
         if ("deliveryErrorRates" in $$parsedSource) {
-            $$parsedSource["deliveryErrorRates"] = $$createField21_0($$parsedSource["deliveryErrorRates"]);
+            $$parsedSource["deliveryErrorRates"] = $$createField24_0($$parsedSource["deliveryErrorRates"]);
         }
         if ("autoMessages" in $$parsedSource) {
-            $$parsedSource["autoMessages"] = $$createField22_0($$parsedSource["autoMessages"]);
+            $$parsedSource["autoMessages"] = $$createField25_0($$parsedSource["autoMessages"]);
         }
         return new Config(/** @type {Partial<Config>} */($$parsedSource));
     }
@@ -433,9 +450,9 @@ export class MessageInfo {
         if (!("timestamp" in $$source)) {
             /**
              * @member
-             * @type {time$0.Time}
+             * @type {string}
              */
-            this["timestamp"] = null;
+            this["timestamp"] = "0001-01-01T00:00:00.000Z";
         }
         if (!("direction" in $$source)) {
             /**

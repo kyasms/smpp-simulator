@@ -131,6 +131,7 @@ export default function OptionsModal({ t, config, onSave, onClose, operatorName 
     gsmEncoding: 'INOUTCHARS', deliverMode: 'DELIVER', multipartMode: 'UDH',
     pduTimeout: 5000, enquireInterval: 30000,
     lastReference: '0', procMin: '', procMax: '',
+    dlrDelayEnabled: false, dlrDelayMin: 0, dlrDelayMax: 10000,
     certStore: 'CURRENTUSER',
     msgFailures: [], dlrFailures: [],
     msgPick: 'RINVMSGLEN', msgPickPct: '10',
@@ -149,6 +150,9 @@ export default function OptionsModal({ t, config, onSave, onClose, operatorName 
       enquireInterval: config.enquireIntervalMs ?? 30000,
       procMin:         String(config.processingMinMs ?? ''),
       procMax:         String(config.processingMaxMs ?? ''),
+      dlrDelayEnabled: config.deliveryReportDelayEnabled ?? false,
+      dlrDelayMin:     config.deliveryReportDelayMinMs ?? 0,
+      dlrDelayMax:     config.deliveryReportDelayMaxMs ?? 10000,
       lastReference:   String(config.lastReference ?? 0),
       multipartMode:   MULTIPART_MAP_FWD[config.multipartMode] ?? 'UDH',
       deliverMode:     DELIVER_MAP_FWD[config.deliverMode] ?? 'DELIVER',
@@ -176,18 +180,21 @@ export default function OptionsModal({ t, config, onSave, onClose, operatorName 
     if (!config) { onClose(); return; }
     const updated = {
       ...config,
-      authRequired:       opts.authEnabled,
-      systemId:           opts.authSystemId,
-      password:           opts.authPassword,
-      pduTimeoutMs:       parseMs(opts.pduTimeout, 5000),
-      enquireIntervalMs:  parseMs(opts.enquireInterval, 30000),
-      processingMinMs:    Number(opts.procMin) || 0,
-      processingMaxMs:    Number(opts.procMax) || 0,
-      lastReference:      Number(opts.lastReference) || 0,
-      multipartMode:      MULTIPART_MAP_REV[opts.multipartMode] ?? 0,
-      deliverMode:        DELIVER_MAP_REV[opts.deliverMode] ?? 1,
-      messageErrorRates:  opts.msgFailures.map(e => ({ statusCode: 0, description: e.status, occurrence: Number(e.pct) })),
-      deliveryErrorRates: opts.dlrFailures.map(e => ({ statusText: e.status, occurrence: Number(e.pct) })),
+      authRequired:               opts.authEnabled,
+      systemId:                   opts.authSystemId,
+      password:                   opts.authPassword,
+      pduTimeoutMs:               parseMs(opts.pduTimeout, 5000),
+      enquireIntervalMs:          parseMs(opts.enquireInterval, 30000),
+      processingMinMs:            Number(opts.procMin) || 0,
+      processingMaxMs:            Number(opts.procMax) || 0,
+      deliveryReportDelayEnabled: opts.dlrDelayEnabled,
+      deliveryReportDelayMinMs:   Number(opts.dlrDelayMin) || 0,
+      deliveryReportDelayMaxMs:   Number(opts.dlrDelayMax) || 10000,
+      lastReference:              Number(opts.lastReference) || 0,
+      multipartMode:              MULTIPART_MAP_REV[opts.multipartMode] ?? 0,
+      deliverMode:                DELIVER_MAP_REV[opts.deliverMode] ?? 1,
+      messageErrorRates:          opts.msgFailures.map(e => ({ statusCode: 0, description: e.status, occurrence: Number(e.pct) })),
+      deliveryErrorRates:         opts.dlrFailures.map(e => ({ statusText: e.status, occurrence: Number(e.pct) })),
     };
     onSave(updated).then(onClose).catch(console.error);
   };
@@ -271,6 +278,20 @@ export default function OptionsModal({ t, config, onSave, onClose, operatorName 
             </div>
             <p style={{ margin: '4px 0 0', fontSize: 11.5, color: t.muted, lineHeight: 1.55 }}>
               Each incoming message is held for a random delay between min and max before the response is emitted.
+            </p>
+          </OptGroup>
+
+          <OptGroup t={t} label="Delivery report delay">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', fontSize: 12.5 }}>
+              <input type="checkbox" checked={opts.dlrDelayEnabled} onChange={e => set('dlrDelayEnabled', e.target.checked)} style={{ accentColor: t.ink, width: 14, height: 14, margin: 0 }} />
+              Add random delay to delivery reports
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, opacity: opts.dlrDelayEnabled ? 1 : 0.4, pointerEvents: opts.dlrDelayEnabled ? 'auto' : 'none', transition: 'opacity 120ms', marginTop: 8 }}>
+              <OptInput t={t} label="Minimum" suffix="ms" value={opts.dlrDelayMin} onChange={v => set('dlrDelayMin', v)} />
+              <OptInput t={t} label="Maximum" suffix="ms" value={opts.dlrDelayMax} onChange={v => set('dlrDelayMax', v)} />
+            </div>
+            <p style={{ margin: '12px 0 0', fontSize: 11.5, color: t.muted, lineHeight: 1.55 }}>
+              When enabled, delivery reports will be delayed by a random interval between min and max milliseconds.
             </p>
           </OptGroup>
 
